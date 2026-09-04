@@ -12,7 +12,7 @@ import {
 /* ---------------------------------------------------------------------- */
 
 // Substituir pelos valores em Supabase -> Settings -> Data API.
-const SUPABASE_URL = 'https://ynanmvxgzbwqfktzhxrq.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://ynanmvxgzbwqfktzhxrq.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Dl31OFAPt0ksFOB4JGRk0Q_R8UHzFPn';
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes('COLA_AQUI') && !SUPABASE_ANON_KEY.includes('COLA_AQUI');
 const POLL_INTERVAL_MS = 120000; // 2 minutos — dados pouco voláteis (cotações diárias)
