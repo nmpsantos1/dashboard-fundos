@@ -21,6 +21,28 @@ function supabaseHeaders() {
   return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
 }
 
+const PAGE_SIZE = 1000;
+
+// Vai buscar TODAS as linhas de uma tabela, paginando em blocos de PAGE_SIZE.
+// O Supabase (PostgREST) só devolve até um máximo de linhas por pedido (por
+// defeito, 1000) — sem isto, históricos longos ficavam cortados.
+async function fetchTablePaged(table, query = '') {
+  let allRows = [];
+  let from = 0;
+  for (;;) {
+    const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+    const res = await fetch(url, {
+      headers: { ...supabaseHeaders(), Range: `${from}-${from + PAGE_SIZE - 1}` },
+    });
+    if (!res.ok) throw new Error(`Falha ao carregar ${table}`);
+    const page = await res.json();
+    allRows = allRows.concat(page);
+    if (page.length < PAGE_SIZE) break; // última página
+    from += PAGE_SIZE;
+  }
+  return allRows;
+}
+
 async function fetchTable(table, query = '') {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
   const res = await fetch(url, { headers: supabaseHeaders() });
@@ -31,8 +53,8 @@ async function fetchTable(table, query = '') {
 // Carrega o mapeamento, o risco e as definições (tabelas pequenas, sempre por inteiro).
 async function loadCatalog() {
   const [mapping, risk, settings] = await Promise.all([
-    fetchTable('mapeamento_produto_fundo', '?select=*'),
-    fetchTable('risco_fundos', '?select=*'),
+    fetchTablePaged('mapeamento_produto_fundo', '?select=*'),
+    fetchTablePaged('risco_fundos', '?select=*'),
     fetchTable('definicoes', '?select=*&id=eq.default'),
   ]);
   return {
@@ -52,7 +74,10 @@ async function loadCatalog() {
 async function loadNavForFunds(codFunList) {
   if (!codFunList || codFunList.length === 0) return {};
   const inList = codFunList.map((c) => `"${c}"`).join(',');
-  const rows = await fetchTable('nav_cotacoes', `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=data.asc`);
+  const rows = await fetchTablePaged(
+    'nav_cotacoes',
+    `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=cod_fun.asc,data.asc`,
+  );
   const map = {};
   for (const r of rows) {
     if (!map[r.cod_fun]) map[r.cod_fun] = [];
@@ -60,6 +85,7 @@ async function loadNavForFunds(codFunList) {
   }
   return map;
 }
+
 
 function normalizeFundName(s) {
   return (s || '').toString().trim().replace(/\s+/g, ' ')
