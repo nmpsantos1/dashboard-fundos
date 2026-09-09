@@ -78,10 +78,24 @@ async function loadCatalog() {
 async function loadNavForFunds(codFunList) {
   if (!codFunList || codFunList.length === 0) return {};
   const inList = codFunList.map((c) => `"${c}"`).join(',');
-  const [rawRows, correcoes] = await Promise.all([
-    fetchTablePaged('nav_cotacoes', `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=cod_fun.asc,data.asc`),
-    fetchTablePaged('nav_cotacoes_correcoes', `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})`),
-  ]);
+
+  const rawRows = await fetchTablePaged(
+    'nav_cotacoes',
+    `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=cod_fun.asc,data.asc`,
+  );
+
+  // A tabela de correções manuais é opcional (pode ainda não ter sido criada no
+  // Supabase) — se falhar por qualquer motivo, seguimos sem correções em vez de
+  // deixar cair a leitura das cotações reais.
+  let correcoes = [];
+  try {
+    correcoes = await fetchTablePaged(
+      'nav_cotacoes_correcoes',
+      `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})`,
+    );
+  } catch (e) {
+    correcoes = [];
+  }
 
   const merged = new Map(); // `${cod_fun}|${data}` -> { codFun, dateISO, nav }
   for (const r of rawRows) {
