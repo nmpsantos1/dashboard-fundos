@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -71,18 +71,32 @@ async function loadCatalog() {
 }
 
 // Carrega o histórico de cotações de um ou vários fundos (por código), sob procura.
+// As "correções manuais" (nav_cotacoes_correcoes) têm sempre prioridade sobre o
+// valor bruto em nav_cotacoes — assim, reimportar o histórico do sistema
+// central não volta a sobrepor uma correção pontual já feita. Também permite
+// acrescentar um dia que falte por completo nos dados brutos.
 async function loadNavForFunds(codFunList) {
   if (!codFunList || codFunList.length === 0) return {};
   const inList = codFunList.map((c) => `"${c}"`).join(',');
-  const rows = await fetchTablePaged(
-    'nav_cotacoes',
-    `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=cod_fun.asc,data.asc`,
-  );
-  const map = {};
-  for (const r of rows) {
-    if (!map[r.cod_fun]) map[r.cod_fun] = [];
-    map[r.cod_fun].push({ date: new Date(`${r.data}T00:00:00`), dateISO: r.data, nav: Number(r.cotacao) });
+  const [rawRows, correcoes] = await Promise.all([
+    fetchTablePaged('nav_cotacoes', `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})&order=cod_fun.asc,data.asc`),
+    fetchTablePaged('nav_cotacoes_correcoes', `?select=cod_fun,data,cotacao&cod_fun=in.(${inList})`),
+  ]);
+
+  const merged = new Map(); // `${cod_fun}|${data}` -> { codFun, dateISO, nav }
+  for (const r of rawRows) {
+    merged.set(`${r.cod_fun}|${r.data}`, { codFun: r.cod_fun, dateISO: r.data, nav: Number(r.cotacao) });
   }
+  for (const c of correcoes) {
+    merged.set(`${c.cod_fun}|${c.data}`, { codFun: c.cod_fun, dateISO: c.data, nav: Number(c.cotacao) });
+  }
+
+  const map = {};
+  for (const { codFun, dateISO, nav } of merged.values()) {
+    if (!map[codFun]) map[codFun] = [];
+    map[codFun].push({ date: new Date(`${dateISO}T00:00:00`), dateISO, nav });
+  }
+  for (const arr of Object.values(map)) arr.sort((a, b) => a.date - b.date);
   return map;
 }
 
@@ -433,15 +447,6 @@ export default function App() {
   const [viewMode, setViewMode] = useState('fundo');
   const [loaded, setLoaded] = useState(false);
 
-  // Load Google Fonts
-  useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap';
-    document.head.appendChild(link);
-    return () => { document.head.removeChild(link); };
-  }, []);
-
   // Carrega o catálogo (mapeamento + risco + definições) do Supabase, com atualização periódica.
   useEffect(() => {
     if (!SUPABASE_CONFIGURED) { setLoaded(true); return undefined; }
@@ -782,13 +787,13 @@ export default function App() {
         .dashboard {
           background: var(--bg);
           color: var(--ink);
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
           min-height: 100vh;
           padding: 32px;
         }
         .container { max-width: 1120px; margin: 0 auto; }
         .eyebrow {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           text-transform: uppercase;
           letter-spacing: 0.12em;
           font-size: 11px;
@@ -796,7 +801,7 @@ export default function App() {
           font-weight: 600;
         }
         .title {
-          font-family: 'Fraunces', serif;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 32px;
           font-weight: 600;
           margin: 6px 0 4px;
@@ -807,7 +812,7 @@ export default function App() {
         .summary-line {
           color: var(--ink-soft);
           font-size: 13px;
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
         }
         .header-row {
           display: flex;
@@ -849,7 +854,7 @@ export default function App() {
         .banner-success { background: rgba(27,122,76,0.08); color: var(--positive); border: 1px solid rgba(27,122,76,0.25); }
         .banner-warning { background: rgba(184,134,46,0.1); color: #8A6416; border: 1px solid rgba(184,134,46,0.3); }
         .banner code {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           background: rgba(0,0,0,0.06);
           padding: 1px 5px;
           border-radius: 4px;
@@ -899,7 +904,7 @@ export default function App() {
         }
         .fund-group { margin-bottom: 6px; }
         .fund-group-header {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           font-size: 10.5px;
@@ -944,7 +949,7 @@ export default function App() {
           flex-wrap: wrap;
           margin-bottom: 20px;
         }
-        .fund-name { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; }
+        .fund-name { font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 600; }
         .fund-last-nav {
           display: flex;
           align-items: baseline;
@@ -952,7 +957,7 @@ export default function App() {
           margin-top: 8px;
         }
         .fund-last-nav-value {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 34px;
           font-weight: 700;
           color: var(--accent-gold);
@@ -961,12 +966,12 @@ export default function App() {
         .fund-last-nav-date {
           font-size: 13px;
           color: var(--ink-soft);
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
         }
         .fund-meta {
           color: var(--ink-soft);
           font-size: 13px;
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           margin-top: 6px;
         }
         .fund-hint {
@@ -1001,7 +1006,7 @@ export default function App() {
           align-items: center;
           justify-content: center;
           font-size: 11px;
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           color: rgba(0,0,0,0.5);
           opacity: 0.35;
           transition: all 0.15s;
@@ -1016,7 +1021,7 @@ export default function App() {
         .risk-ladder-caption {
           font-size: 11px;
           color: var(--ink-soft);
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           margin-top: 8px;
         }
         .card {
@@ -1042,7 +1047,7 @@ export default function App() {
           margin-bottom: 8px;
         }
         .kpi-value {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 21px;
           font-weight: 600;
         }
@@ -1066,7 +1071,7 @@ export default function App() {
           margin-bottom: 8px;
         }
         .sharpe-value {
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 24px;
           font-weight: 600;
         }
@@ -1081,7 +1086,7 @@ export default function App() {
           gap: 10px;
         }
         .chart-title {
-          font-family: 'Fraunces', serif;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 17px;
           font-weight: 600;
         }
@@ -1094,7 +1099,7 @@ export default function App() {
           background: var(--surface);
           cursor: pointer;
           color: var(--ink-soft);
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
         }
         .range-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
         .chart-tooltip {
@@ -1104,8 +1109,8 @@ export default function App() {
           border-radius: 8px;
           font-size: 12px;
         }
-        .chart-tooltip-date { font-family: 'IBM Plex Mono', monospace; opacity: 0.7; margin-bottom: 2px; }
-        .chart-tooltip-value { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+        .chart-tooltip-date { font-family: Arial, Helvetica, sans-serif; opacity: 0.7; margin-bottom: 2px; }
+        .chart-tooltip-value { font-family: Arial, Helvetica, sans-serif; font-weight: 600; }
         .summary-toggle-btn {
           display: inline-flex;
           align-items: center;
@@ -1126,6 +1131,7 @@ export default function App() {
           border-radius: 16px;
           padding: 20px;
         }
+        .brand-logo { height: 26px; width: auto; display: block; margin-bottom: 10px; }
         .summary-panel-header {
           display: flex;
           justify-content: space-between;
@@ -1134,6 +1140,8 @@ export default function App() {
           margin-bottom: 16px;
           flex-wrap: wrap;
         }
+        .summary-panel-title { display: flex; align-items: center; gap: 16px; }
+        .summary-panel-title .brand-logo { height: 30px; margin-bottom: 0; }
         .summary-table-wrap { overflow-x: auto; }
         .heatmap-table {
           width: 100%;
@@ -1153,6 +1161,8 @@ export default function App() {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.03em;
+          white-space: normal;
+          line-height: 1.3;
         }
         .heatmap-table .th-sub {
           font-size: 10px;
@@ -1164,25 +1174,37 @@ export default function App() {
         .heatmap-table .group-row td {
           background: var(--accent-teal-soft);
           color: var(--accent-teal);
-          font-family: 'IBM Plex Mono', monospace;
+          font-family: Arial, Helvetica, sans-serif;
           text-transform: uppercase;
           letter-spacing: 0.06em;
           font-size: 11px;
           font-weight: 700;
           text-align: left;
         }
-        .heatmap-table .fund-name-cell { text-align: left; font-weight: 500; white-space: normal; min-width: 180px; }
-        .heatmap-table .mono-cell { font-family: 'IBM Plex Mono', monospace; }
+        .heatmap-table .fund-name-cell {
+          text-align: left;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          min-width: 240px;
+        }
+        .heatmap-table .mono-cell { font-family: Arial, Helvetica, sans-serif; }
         .heatmap-table .risk-cell { color: #fff; font-weight: 600; }
         .heatmap-table tbody tr:nth-child(even):not(.group-row) { background: rgba(0,0,0,0.015); }
+        .heatmap-table .spacer-row td { border: none; padding: 4px 0; background: transparent; }
         .print-hide { }
         @media print {
           .print-hide { display: none !important; }
           body, .dashboard { background: #fff !important; padding: 0 !important; }
           .container { max-width: none !important; }
           .summary-panel { border: none !important; padding: 0 !important; }
-          .heatmap-table { font-size: 10px; }
+          .heatmap-table { font-size: 9.5px; table-layout: fixed; }
           .heatmap-table th, .heatmap-table td { padding: 3px 5px; }
+          /* Na impressao, a tabela usa table-layout:fixed (acima) — o max-width:0 aqui
+             forca cada celula a respeitar exatamente a % definida no colgroup, em vez de
+             tentar crescer com o conteudo (o que causaria corte nas margens da pagina). */
+          .heatmap-table .fund-name-cell { max-width: 0; min-width: 0; }
           .heatmap-table, .heatmap-table * {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -1206,6 +1228,7 @@ export default function App() {
 
         <div className="header-row print-hide">
           <div>
+            <img src="/gamalife-logo.png" alt="GamaLife" className="brand-logo" />
             <div className="eyebrow">Rendibilidades e Cotações GamaLife</div>
             <div className="title"><TrendingUp size={26} color="var(--accent-gold)" />Evolução diária das unidades de conta</div>
             <div className="summary-line">
@@ -1259,12 +1282,12 @@ export default function App() {
         {viewMode === 'fundo' && (!loaded ? (
           <div className="empty-state">
             <Loader2 size={40} className="spin" />
-            <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginTop: 12 }}>A carregar…</div>
+            <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginTop: 12 }}>A carregar…</div>
           </div>
         ) : !hasMapping ? (
           <div className="empty-state">
             <LineChartIcon size={40} />
-            <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginBottom: 6 }}>
+            <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginBottom: 6 }}>
               Sem dados disponíveis de momento
             </div>
             <div style={{ fontSize: 13 }}>
@@ -1297,7 +1320,7 @@ export default function App() {
               {!selectedFund ? (
                 <div className="empty-state">
                   <LineChartIcon size={40} />
-                  <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginBottom: 6 }}>
+                  <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginBottom: 6 }}>
                     Selecione um fundo
                   </div>
                   <div style={{ fontSize: 13 }}>
@@ -1454,12 +1477,12 @@ export default function App() {
               ) : fundSeriesLoading[selectedFund] ? (
                 <div className="empty-state">
                   <Loader2 size={40} className="spin" />
-                  <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginTop: 12 }}>A carregar cotações…</div>
+                  <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginTop: 12 }}>A carregar cotações…</div>
                 </div>
               ) : (
                 <div className="empty-state">
                   <LineChartIcon size={40} />
-                  <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginBottom: 6 }}>
+                  <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginBottom: 6 }}>
                     Sem cotações para {selectedFundName}
                   </div>
                   <div style={{ fontSize: 13 }}>
@@ -1473,15 +1496,18 @@ export default function App() {
 
         {viewMode === 'resumo' && (
           <div className="summary-panel">
-            <div className="summary-panel-header print-hide">
-              <div>
-                <div className="chart-title">Resumo — Fundos Em Comercialização</div>
-                <div className="summary-line">
-                  Agrupado por Grupo · {summaryGroups.reduce((n, g) => n + g.rows.length, 0)} fundo(s)
-                  {summaryMaxDate ? ` · dados a ${formatDateHyphen(summaryMaxDate)}` : ''}
+            <div className="summary-panel-header">
+              <div className="summary-panel-title">
+                <img src="/gamalife-logo.png" alt="GamaLife" className="brand-logo" />
+                <div>
+                  <div className="chart-title">Resumo — Fundos Em Comercialização</div>
+                  <div className="summary-line">
+                    Agrupado por Grupo · {summaryGroups.reduce((n, g) => n + g.rows.length, 0)} fundo(s)
+                    {summaryMaxDate ? ` · dados a ${formatDateHyphen(summaryMaxDate)}` : ''}
+                  </div>
                 </div>
               </div>
-              <button className="icon-btn" onClick={() => window.print()}>
+              <button className="icon-btn print-hide" onClick={() => window.print()}>
                 <Printer size={15} /> Imprimir / Exportar PDF
               </button>
             </div>
@@ -1489,12 +1515,12 @@ export default function App() {
             {summaryGroups.length === 0 && Object.keys(fundSeriesLoading).length > 0 ? (
               <div className="empty-state">
                 <Loader2 size={40} className="spin" />
-                <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginTop: 12 }}>A carregar cotações…</div>
+                <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginTop: 12 }}>A carregar cotações…</div>
               </div>
             ) : summaryGroups.length === 0 ? (
               <div className="empty-state">
                 <LayoutGrid size={40} />
-                <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 18, marginBottom: 6 }}>
                   Sem fundos em comercialização com cotações publicadas
                 </div>
                 <div style={{ fontSize: 13 }}>
@@ -1505,6 +1531,21 @@ export default function App() {
             ) : (
               <div className="summary-table-wrap">
                 <table className="heatmap-table">
+                  <colgroup>
+                    <col style={{ width: '19%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th rowSpan={2}>Fundo</th>
@@ -1535,7 +1576,8 @@ export default function App() {
                         <td colSpan={13}>{group.grupo}</td>
                       </tr>
                       {group.rows.map((r) => (
-                        <tr key={r.key}>
+                        <Fragment key={r.key}>
+                        <tr>
                           <td className="fund-name-cell">{r.name}</td>
                           <td className="mono-cell">{formatNav(r.metrics.lastNav)}</td>
                           <td className="mono-cell" style={{ background: heatReturnColor(r.metrics.ytd, heatmapScales.ytd) }}>
@@ -1576,6 +1618,8 @@ export default function App() {
                             {r.metrics.sharpe8 ? r.metrics.sharpe8.sharpe.toFixed(2) : 'N/D'}
                           </td>
                         </tr>
+                        <tr className="spacer-row"><td colSpan={13}></td></tr>
+                        </Fragment>
                       ))}
                     </tbody>
                   ))}
