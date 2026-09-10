@@ -460,6 +460,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('fundo');
   const [loaded, setLoaded] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   // Carrega o catálogo (mapeamento + risco + definições) do Supabase, com atualização periódica.
   useEffect(() => {
@@ -874,6 +875,34 @@ export default function App() {
           border-radius: 4px;
         }
         .spin { animation: dashboard-spin 1s linear infinite; color: var(--accent-teal); }
+        .legal-footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+        .disclaimer-toggle {
+          background: none;
+          border: 1px solid var(--hairline);
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 11px;
+          color: var(--ink-soft);
+          cursor: pointer;
+        }
+        .disclaimer-toggle:hover { color: var(--ink); border-color: var(--accent-teal); }
+        .disclaimer-content { display: none; margin-top: 14px; font-size: 10.5px; line-height: 1.65; color: var(--ink-soft); }
+        .disclaimer-content.expanded { display: block; }
+        .disclaimer-title {
+          font-weight: 700;
+          color: var(--ink);
+          margin-bottom: 10px;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .disclaimer-content ul { margin: 0 0 18px; padding-left: 18px; }
+        .disclaimer-content li { margin-bottom: 9px; }
+        .disclaimer-legends { display: flex; gap: 36px; flex-wrap: wrap; }
+        .disclaimer-legend-title { font-weight: 700; color: var(--ink); margin-bottom: 6px; font-size: 10.5px; }
+        .disclaimer-legend-table table { border-collapse: collapse; font-size: 10px; }
+        .disclaimer-legend-table th, .disclaimer-legend-table td { border: 1px solid var(--hairline); padding: 4px 10px; text-align: left; }
+        .disclaimer-legend-table th { background: var(--ink); color: #fff; font-weight: 600; }
         @keyframes dashboard-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .situacao-tabs {
           display: inline-flex;
@@ -1225,6 +1254,12 @@ export default function App() {
             color-adjust: exact;
           }
           @page { size: A4 landscape; margin: 10mm; }
+          .legal-footer { margin-top: 16px; padding-top: 10px; }
+          .disclaimer-content { display: block !important; font-size: 8px; }
+          .disclaimer-content ul { padding-left: 14px; }
+          .disclaimer-content li { margin-bottom: 4px; }
+          .disclaimer-legend-table table { font-size: 7.5px; }
+          .disclaimer-legend-table, .disclaimer-content li { break-inside: avoid; page-break-inside: avoid; }
         }
         @media (max-width: 800px) {
           .dashboard { padding: 18px; }
@@ -1642,6 +1677,97 @@ export default function App() {
             )}
           </div>
         )}
+
+        <footer className="legal-footer">
+          <button
+            className="disclaimer-toggle print-hide"
+            onClick={() => setShowDisclaimer((v) => !v)}
+          >
+            {showDisclaimer ? 'Ocultar disclaimer legal' : 'Ver disclaimer legal'}
+          </button>
+          <div className={`disclaimer-content${showDisclaimer ? ' expanded' : ''}`}>
+            <div className="disclaimer-title">Disclaimer</div>
+            <ul>
+              <li>As rendibilidades apresentadas, com exceção do YTD, referem-se às TAE.</li>
+              <li>Todos os valores apresentados são em Euros.</li>
+              <li>
+                O índice de Sharpe mede a relação entre (i) a rendibilidade obtida pelo fundo, em excesso
+                face a uma aplicação sem risco, e (ii) o risco assumido, medido pela respetiva
+                volatilidade. O Índice de Sharpe é usado como medida de qualidade da rendibilidade do
+                fundo, relacionando rendibilidade e risco: quanto maior o seu valor, maior a eficiência
+                da gestão. Usado para comparar fundos de uma mesma categoria.
+              </li>
+              <li>
+                As importâncias seguras nos contratos em unidades de conta afectos aos acima constantes
+                variam em função dos activos que compõem o património do Fundo afecto, os quais por sua
+                vez têm níveis de risco variáveis (ver tabelas) e não têm garantia de capital ou de
+                rendimento.
+              </li>
+              <li>
+                Os fundos autónomos acima constantes são parte integrante de seguros de capitalização
+                expressos em unidades de conta. Todos os fundos autónomos em comercialização possuem para
+                consulta um DIF (Documento de Informação Fundamental) e um DIA (Documento de Informação
+                Adicional) dos quais consta a informação prevista na lei, nomeadamente Mercado alvo e tipo
+                de Investidor não profissional ao qual se destina, o Indicador Sumário de Risco, os
+                cenários de desempenho e a composição dos custos incluindo o valor relativo a pagamentos
+                de terceiros recebidos pelo NOVO BANCO, S.A.. Esta informação encontra-se disponível para
+                consulta em www.novobanco.pt e nos balcões do NOVO BANCO, S.A.. Encontram-se igualmente
+                disponíveis para consulta as "Condições Gerais e Especiais" dos respetivos Seguros, bem
+                como a Informação sobre Gestão de Reclamações e Política de Tratamento de Clientes" e os
+                "Deveres Especiais de Informação do Mediador".
+              </li>
+              <li>
+                Produto comercializado pelo NOVO BANCO, S.A., com sede no Campus do novobanco, Av. Dr.
+                Mário Soares, Taguspark, Edifício 1, 2740-119 Porto Salvo, registado junto da Autoridade
+                de Supervisão de Seguros e Fundos de Pensões, na categoria de Agente de Seguros com o n.º
+                419506141, desde 21.01.2019. Autorizado a comercializar seguros no ramo Vida e Não Vida
+                dos Seguradores GamaLife, Mudum Seguros, Generali Seguros, Europ Assistance, GNB Fundos de
+                Pensões e Coface. Sem poderes de representação dos seguradores para a celebração de
+                contratos de seguro; sem poderes para receber prémios de seguros e não assume a cobertura
+                de riscos. Todas as informações sobre o Agente de Seguros podem ser consultadas em
+                www.asf.com.pt.
+              </li>
+              <li>
+                Os contratos são celebrados pela GamaLife – Companhia de Seguros de Vida, S.A., Av.
+                Columbano Bordalo Pinheiro, nº 75 - 11º piso - 1070-061 Lisboa - Apartado 24048, Loja CTT
+                Campo de Ourique (Lisboa) 1251-977 Lisboa, Portugal - Capital Social €50.000.000 - Nº 503
+                024 856, de pessoa coletiva e de matrícula na C.R.C. de Lisboa.
+              </li>
+            </ul>
+            <div className="disclaimer-legends">
+              <div className="disclaimer-legend-table">
+                <div className="disclaimer-legend-title">Indicador Sumário Risco</div>
+                <table>
+                  <thead><tr><th>ISR</th><th>Nível de Risco</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>Mais baixo</td></tr>
+                    <tr><td>2</td><td>Baixo</td></tr>
+                    <tr><td>3</td><td>Médio-baixo</td></tr>
+                    <tr><td>4</td><td>Médio</td></tr>
+                    <tr><td>5</td><td>Médio-alto</td></tr>
+                    <tr><td>6</td><td>Segundo mais alto</td></tr>
+                    <tr><td>7</td><td>Mais alto</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="disclaimer-legend-table">
+                <div className="disclaimer-legend-title">Classe Volatilidade Anual</div>
+                <table>
+                  <thead><tr><th>Classe</th><th>Intervalo Volatilidade Anual</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>0% a 0,5%</td></tr>
+                    <tr><td>2</td><td>0,5% a 2%</td></tr>
+                    <tr><td>3</td><td>2% a 5%</td></tr>
+                    <tr><td>4</td><td>5% a 10%</td></tr>
+                    <tr><td>5</td><td>10% a 15%</td></tr>
+                    <tr><td>6</td><td>15% a 25%</td></tr>
+                    <tr><td>7</td><td>≥ 25%</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );
