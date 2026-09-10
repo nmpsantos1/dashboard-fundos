@@ -294,12 +294,18 @@ function computeMetrics(series, riskFreeRate, officialInceptionDate) {
   const computedVolatility = annualizedVolOf(classSubset);
   const computedRiskClass = volatilityToClass(computedVolatility);
 
+  // Variação face ao dia anterior (simples, nao anualizada)
+  const prevPoint = series.length >= 2 ? series[series.length - 2] : null;
+  const dailyChange = prevPoint && prevPoint.nav !== 0 ? last.nav / prevPoint.nav - 1 : null;
+  const dailyChangeDate = prevPoint ? prevPoint.date : null;
+
   return {
     firstDate: naturalFirst.date,
     inceptionDate,
     historyGap,
     lastDate: last.date,
     lastNav: last.nav,
+    dailyChange, dailyChangeDate,
     ytd, ytdPartial,
     oneYear, threeYear, fiveYear, eightYear,
     sinceInceptionTotal, sinceInceptionAnnualized,
@@ -1011,6 +1017,15 @@ export default function App() {
           color: var(--ink-soft);
           font-family: Arial, Helvetica, sans-serif;
         }
+        .fund-daily-change {
+          font-size: 12.5px;
+          font-weight: 600;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+        .fund-daily-change.pos { color: var(--positive); background: rgba(27,122,76,0.1); }
+        .fund-daily-change.neg { color: var(--negative); background: rgba(179,38,30,0.1); }
         .fund-meta {
           color: var(--ink-soft);
           font-size: 13px;
@@ -1384,6 +1399,11 @@ export default function App() {
                       <div className="fund-last-nav">
                         <span className="fund-last-nav-value">{formatNav(metrics.lastNav)}</span>
                         <span className="fund-last-nav-date">{formatDate(metrics.lastDate)}</span>
+                        {metrics.dailyChange !== null && (
+                          <span className={`fund-daily-change ${returnClass(metrics.dailyChange)}`}>
+                            {metrics.dailyChange >= 0 ? '+' : ''}{formatPercent(metrics.dailyChange)} face ao dia anterior
+                          </span>
+                        )}
                       </div>
                       {metrics.historyGap && (
                         <div className="fund-meta">Cotações carregadas apenas desde {formatDate(metrics.firstDate)}</div>
